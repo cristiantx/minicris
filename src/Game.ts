@@ -10,6 +10,7 @@ export class Game {
     public cameraManager: CameraManager;
     public inputManager: InputManager;
     public character: Character | null = null;
+    public dirLight: THREE.DirectionalLight | null = null;
     
     private clock: THREE.Clock;
 
@@ -58,19 +59,28 @@ export class Game {
         this.scene.add(hemiLight);
 
         // Main Directional Light (Sun)
-        const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
-        dirLight.position.set(10, 30, 20);
-        dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 2048;
-        dirLight.shadow.mapSize.height = 2048;
-        dirLight.shadow.camera.near = 1;
-        dirLight.shadow.camera.far = 100;
-        dirLight.shadow.camera.left = -30;
-        dirLight.shadow.camera.right = 30;
-        dirLight.shadow.camera.top = 30;
-        dirLight.shadow.camera.bottom = -30;
-        dirLight.shadow.bias = -0.001;
-        this.scene.add(dirLight);
+        this.dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+        this.dirLight.position.set(20, 40, 20); // Higher and more offset
+        this.dirLight.castShadow = true;
+        
+        // High resolution shadow map
+        this.dirLight.shadow.mapSize.width = 4096;
+        this.dirLight.shadow.mapSize.height = 4096;
+        
+        // Tight frustum for maximum pixel density around player
+        const shadowSize = 15;
+        this.dirLight.shadow.camera.near = 1;
+        this.dirLight.shadow.camera.far = 100;
+        this.dirLight.shadow.camera.left = -shadowSize;
+        this.dirLight.shadow.camera.right = shadowSize;
+        this.dirLight.shadow.camera.top = shadowSize;
+        this.dirLight.shadow.camera.bottom = -shadowSize;
+        
+        // Bias tuning to avoid acne and separate shadow from feet
+        this.dirLight.shadow.bias = -0.0005;
+        this.dirLight.shadow.normalBias = 0.05; 
+        
+        this.scene.add(this.dirLight);
 
         // Secondary Soft Light for rim/fill
         const fillLight = new THREE.PointLight(0xffd700, 1.0, 50); // Golden hint
@@ -145,6 +155,14 @@ export class Game {
         if (this.character) {
             this.character.update(delta, this.inputManager.inputVector);
             this.cameraManager.follow(this.character.position, delta);
+
+            // Follow the character with the light to keep the high-quality shadow area centered
+            if (this.dirLight) {
+                this.dirLight.position.x = this.character.position.x + 20;
+                this.dirLight.position.z = this.character.position.z + 20;
+                this.dirLight.target.position.copy(this.character.position);
+                this.dirLight.target.updateMatrixWorld();
+            }
         }
 
         this.renderer.render(this.scene, this.cameraManager.camera);
