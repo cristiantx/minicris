@@ -66,7 +66,7 @@ export class Character {
                     const [walkFbx, runFbx, idleFbx, boredFbx] = await Promise.all([
                         loader.loadAsync('/models/walking.fbx'),
                         loader.loadAsync('/models/running.fbx'),
-                        loader.loadAsync('/models/idle.fbx'),
+                        loader.loadAsync('/models/drunk-idle.fbx'),
                         loader.loadAsync('/models/bored.fbx')
                     ]);
 
