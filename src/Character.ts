@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { Game } from './Game';
 
 export class Character {
@@ -13,7 +13,7 @@ export class Character {
 
     // State
     public position: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
-    private speed: number = 0;
+    // private speed: number = 0;
     private maxSpeed: number = 10; // Run speed
     private walkSpeed: number = 4; // Walk speed
 
@@ -52,56 +52,57 @@ export class Character {
                 }
             });
 
-            this.game.scene.add(this.mesh);
-            this.position.copy(this.mesh.position);
+            if (this.mesh) {
+                this.game.scene.add(this.mesh);
+                this.position.copy(this.mesh.position);
 
-            // 2. Setup Animations
-            this.mixer = new THREE.AnimationMixer(this.mesh);
+                // 2. Setup Animations
+                this.mixer = new THREE.AnimationMixer(this.mesh);
+            }
             
-            // Extract animations from the main file if any (Unlikely if separate files provided, but possible)
-            // But user said "walking.fbx", "running.fbx".
-
-            // Load Walking
-            const walkFbx = await loader.loadAsync('/models/walking.fbx');
-            const walkClip = walkFbx.animations[0];
-            if(walkClip) {
-                walkClip.name = 'walk'; // Rename for easier access
-                this.actions['walk'] = this.mixer.clipAction(walkClip);
-            }
-
-            // Load Running
-            const runFbx = await loader.loadAsync('/models/running.fbx');
-            const runClip = runFbx.animations[0];
-            if(runClip) {
-                runClip.name = 'run';
-                this.actions['run'] = this.mixer.clipAction(runClip);
-            }
-
-            // Load Idle
-            const idleFbx = await loader.loadAsync('/models/idle.fbx');
-            const idleClip = idleFbx.animations[0];
-            if(idleClip) {
-                idleClip.name = 'idle';
-                this.actions['idle'] = this.mixer.clipAction(idleClip);
-            }
-
-            // Load Bored
-            const boredFbx = await loader.loadAsync('/models/bored.fbx');
-            const boredClip = boredFbx.animations[0];
-            if(boredClip) {
-                boredClip.name = 'bored';
-                this.actions['bored'] = this.mixer.clipAction(boredClip);
-                this.actions['bored'].loop = THREE.LoopOnce;
-                this.actions['bored'].clampWhenFinished = true;
-                
-                // listener to return to idle after bored
-                this.mixer.addEventListener('finished', (e: any) => {
-                    if (e.action === this.actions['bored']) {
-                        this.fadeToAction('idle', 0.5);
-                        this.idleTimer = 0; // Reset timer
+                if (this.mixer) {
+                    // Load Walking
+                    const walkFbx = await loader.loadAsync('/models/walking.fbx');
+                    const walkClip = walkFbx.animations[0];
+                    if (walkClip) {
+                        walkClip.name = 'walk'; // Rename for easier access
+                        this.actions['walk'] = this.mixer.clipAction(walkClip);
                     }
-                });
-            }
+
+                    // Load Running
+                    const runFbx = await loader.loadAsync('/models/running.fbx');
+                    const runClip = runFbx.animations[0];
+                    if (runClip) {
+                        runClip.name = 'run';
+                        this.actions['run'] = this.mixer.clipAction(runClip);
+                    }
+
+                    // Load Idle
+                    const idleFbx = await loader.loadAsync('/models/idle.fbx');
+                    const idleClip = idleFbx.animations[0];
+                    if (idleClip) {
+                        idleClip.name = 'idle';
+                        this.actions['idle'] = this.mixer.clipAction(idleClip);
+                    }
+
+                    // Load Bored
+                    const boredFbx = await loader.loadAsync('/models/bored.fbx');
+                    const boredClip = boredFbx.animations[0];
+                    if (boredClip) {
+                        boredClip.name = 'bored';
+                        this.actions['bored'] = this.mixer.clipAction(boredClip);
+                        this.actions['bored'].loop = THREE.LoopOnce;
+                        this.actions['bored'].clampWhenFinished = true;
+
+                        // listener to return to idle after bored
+                        this.mixer.addEventListener('finished', (e: any) => {
+                            if (e.action === this.actions['bored']) {
+                                this.fadeToAction('idle', 0.5);
+                                this.idleTimer = 0; // Reset timer
+                            }
+                        });
+                    }
+                }
 
             // Start Idle
             if(this.actions['idle']) {
@@ -118,7 +119,7 @@ export class Character {
 
     // State Variables
     private idleTimer: number = 0;
-    private isBored: boolean = false;
+    // private isBored: boolean = false;
 
     public update(delta: number, input: THREE.Vector2) {
         if (!this.mesh || !this.mixer) return;

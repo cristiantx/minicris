@@ -3,14 +3,14 @@ import { Game } from './Game';
 
 export class CameraManager {
     public camera: THREE.OrthographicCamera;
-    private game: Game;
+    // private game: Game;
 
     // Isometric Orthographic config
     private viewSize: number = 15; // How many world units vertical fit in screen
     private offset: THREE.Vector3;
 
-    constructor(game: Game) {
-        this.game = game;
+    constructor(_game: Game) {
+        // this.game = game;
         
         const aspect = window.innerWidth / window.innerHeight;
         

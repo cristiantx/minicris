@@ -10,8 +10,8 @@ export class InputManager {
     private currentTouch: THREE.Vector2 = new THREE.Vector2();
     
     // DOM Elements for visual joystick
-    private joystickBase: HTMLDivElement;
-    private joystickThumb: HTMLDivElement;
+    private joystickBase!: HTMLDivElement;
+    private joystickThumb!: HTMLDivElement;
 
     constructor(container: HTMLElement) {
         this.container = container;
@@ -95,7 +95,7 @@ export class InputManager {
         this.updateDrag(e.clientX, e.clientY);
     }
 
-    private onMouseUp(e: MouseEvent) {
+    private onMouseUp(_e: MouseEvent) {
         this.endDrag();
     }
 
