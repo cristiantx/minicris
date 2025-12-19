@@ -54,6 +54,7 @@ export class Character {
 
             if (this.mesh) {
                 this.game.scene.add(this.mesh);
+                this.mesh.visible = false; // Initially hide to avoid T-pose
                 this.position.copy(this.mesh.position);
 
                 // 2. Setup Animations
@@ -61,32 +62,44 @@ export class Character {
             }
             
                 if (this.mixer) {
-                    // Load Walking
-                    const walkFbx = await loader.loadAsync('/models/walking.fbx');
+                    // Load animations in parallel for better performance
+                    const [walkFbx, runFbx, idleFbx, boredFbx] = await Promise.all([
+                        loader.loadAsync('/models/walking.fbx'),
+                        loader.loadAsync('/models/running.fbx'),
+                        loader.loadAsync('/models/idle.fbx'),
+                        loader.loadAsync('/models/bored.fbx')
+                    ]);
+
+                    // Setup Walking
                     const walkClip = walkFbx.animations[0];
                     if (walkClip) {
-                        walkClip.name = 'walk'; // Rename for easier access
+                        walkClip.name = 'walk';
                         this.actions['walk'] = this.mixer.clipAction(walkClip);
                     }
 
-                    // Load Running
-                    const runFbx = await loader.loadAsync('/models/running.fbx');
+                    // Setup Running
                     const runClip = runFbx.animations[0];
                     if (runClip) {
                         runClip.name = 'run';
                         this.actions['run'] = this.mixer.clipAction(runClip);
                     }
 
-                    // Load Idle
-                    const idleFbx = await loader.loadAsync('/models/idle.fbx');
+                    // Setup Idle
                     const idleClip = idleFbx.animations[0];
                     if (idleClip) {
                         idleClip.name = 'idle';
                         this.actions['idle'] = this.mixer.clipAction(idleClip);
+                        
+                        // Start Idle and Reveal Model
+                        this.activeAction = this.actions['idle'];
+                        this.activeAction.play();
+                        
+                        if (this.mesh) {
+                            this.mesh.visible = true;
+                        }
                     }
 
-                    // Load Bored
-                    const boredFbx = await loader.loadAsync('/models/bored.fbx');
+                    // Setup Bored
                     const boredClip = boredFbx.animations[0];
                     if (boredClip) {
                         boredClip.name = 'bored';
@@ -103,12 +116,6 @@ export class Character {
                         });
                     }
                 }
-
-            // Start Idle
-            if(this.actions['idle']) {
-                this.activeAction = this.actions['idle'];
-                this.activeAction.play();
-            }
 
             console.log("Character Loaded", this.actions);
 
@@ -132,9 +139,6 @@ export class Character {
         if (inputMag > 0.01) {
             // Movement Logic
             this.idleTimer = 0; // Reset bored timer
-            if (this.actions['bored'] && this.actions['bored'].isRunning()) {
-                this.actions['bored'].stop(); // Stop bored immediately
-            }
 
             // Calculate Direction
             const camForward = new THREE.Vector3();
