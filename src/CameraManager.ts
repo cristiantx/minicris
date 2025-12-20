@@ -7,11 +7,14 @@ export class CameraManager {
 
     // Isometric Orthographic config
     private viewSize: number = 15; // How many world units vertical fit in screen
+    // Camera states
     private offset: THREE.Vector3;
+    private isoOffset: THREE.Vector3 = new THREE.Vector3(10, 10, 10);
+    private splashOffset: THREE.Vector3 = new THREE.Vector3(0, 3, 4); 
+ // Front, offset to look at character on the right
+    private currentTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
 
     constructor(_game: Game) {
-        // this.game = game;
-        
         const aspect = window.innerWidth / window.innerHeight;
         
         // Orthographic camera for isometric look
@@ -24,12 +27,20 @@ export class CameraManager {
             1000
         );
 
-        // Isometric setup
-        // Ideally we want to look from a corner.
-        // position x=1, y=1, z=1 normalized gives standard iso view
-        this.offset = new THREE.Vector3(10, 10, 10);
+        this.offset = this.splashOffset.clone();
         this.camera.position.copy(this.offset);
-        this.camera.lookAt(0, 0, 0);
+        this.camera.lookAt(0, 1.2, 0); // Look at character chest/head height
+    }
+
+    public setView(type: 'SPLASH' | 'GAMEPLAY') {
+        if (type === 'SPLASH') {
+            this.viewSize = 3; // Even more zoomed in
+            this.offset.copy(this.splashOffset);
+        } else {
+            this.viewSize = 15; // Normal zoom for gameplay
+            this.offset.copy(this.isoOffset);
+        }
+        this.resize();
     }
 
     public resize() {
@@ -41,11 +52,18 @@ export class CameraManager {
         this.camera.updateProjectionMatrix();
     }
 
-    public follow(target: THREE.Vector3, delta: number) {
-        // Smoothly interpolate to target position + offset
-        const desiredPosition = target.clone().add(this.offset);
-        // Simple lerp for smoothness (adjust factor 5.0 for speed)
-        this.camera.position.lerp(desiredPosition, 5.0 * delta);
-        this.camera.lookAt(target);
+    public follow(target: THREE.Vector3, delta: number, lerpFactor: number = 5.0) {
+        this.currentTarget.lerp(target, lerpFactor * delta);
+        
+        const desiredPosition = this.currentTarget.clone().add(this.offset);
+        this.camera.position.lerp(desiredPosition, lerpFactor * delta);
+        
+        // Look at point logic
+        const lookTarget = this.currentTarget.clone();
+        if (this.offset.equals(this.splashOffset)) {
+            // Lowering the look target "pushes" the character towards the bottom of the screen frame
+            lookTarget.y = 0.3; 
+        }
+        this.camera.lookAt(lookTarget);
     }
 }

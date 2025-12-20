@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { CameraManager } from './CameraManager';
 import { InputManager } from './InputManager';
 import { Character } from './Character';
+import { GameState, type GameStateType } from './GameState';
+import { MainMenuUI } from './MainMenuUI';
+import { GameConfig } from './GameConfig';
 
 export class Game {
     private container: HTMLElement;
@@ -12,7 +15,14 @@ export class Game {
     public character: Character | null = null;
     public dirLight: THREE.DirectionalLight | null = null;
     
+    public state: GameStateType = GameState.SPLASH;
+    private ui: MainMenuUI;
     private clock: THREE.Clock;
+
+    // Performance & Debug
+    private fpsElement: HTMLDivElement | null = null;
+    private frameCount: number = 0;
+    private lastTime: number = 0;
 
     constructor(container: HTMLElement) {
         this.container = container;
@@ -29,9 +39,9 @@ export class Game {
         
         // Enhancing visual quality
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.VSMShadowMap; // Switch to VSM for soft shadows
-        this.renderer.outputColorSpace = THREE.SRGBColorSpace; // Better colors
-        this.renderer.toneMapping = THREE.ACESFilmicToneMapping; // Cinematic look
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Switch to PCF Soft Shadows for better stability
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.2;
         
         this.container.appendChild(this.renderer.domElement);
@@ -39,8 +49,10 @@ export class Game {
         // Sub-systems
         this.cameraManager = new CameraManager(this);
         this.inputManager = new InputManager(this.container);
+        this.ui = new MainMenuUI(this.container);
 
         this.initScene();
+        this.initUI();
         
         // Start Loop
         this.animate();
@@ -49,10 +61,40 @@ export class Game {
         window.addEventListener('resize', this.onWindowResize.bind(this));
     }
 
+    private initUI() {
+        this.inputManager.enabled = false; // Disable joystick in menu
+        this.ui.onStartGame = () => this.startGame();
+        this.ui.onOptions = () => console.log("Options clicked");
+        this.ui.show();
+
+        if (GameConfig.SHOW_FPS) {
+            this.fpsElement = document.createElement('div');
+            this.fpsElement.className = 'fps-counter';
+            this.fpsElement.style.display = 'block';
+            this.container.appendChild(this.fpsElement);
+        }
+    }
+
+    private async startGame() {
+        if (this.state !== GameState.SPLASH || !this.character) return;
+        
+        this.state = GameState.TRANSITIONING;
+        this.ui.hide();
+        
+        // Play standup animation and wait for it to finish
+        await this.character.playOneShotAnimation('standup');
+        
+        // Transition camera and state
+        this.cameraManager.setView('GAMEPLAY');
+        this.state = GameState.GAMEPLAY;
+        this.inputManager.enabled = true; // Enable joystick once game starts
+    }
+
     private initScene() {
-        // Background - Soft Sky
-        this.scene.background = new THREE.Color(0xadd8e6); // Lighter sky
-        this.scene.fog = new THREE.Fog(0xadd8e6, 30, 100);
+        // Background - Grassy Green
+        const skyColor = 0x55aa55; 
+        this.scene.background = new THREE.Color(skyColor);
+        this.scene.fog = new THREE.FogExp2(skyColor, 0.01); // Reduced density significantly
 
         // Lighting
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
@@ -64,8 +106,8 @@ export class Game {
         this.dirLight.castShadow = true;
         
         // High resolution shadow map
-        this.dirLight.shadow.mapSize.width = 4096;
-        this.dirLight.shadow.mapSize.height = 4096;
+        this.dirLight.shadow.mapSize.width = 2048;
+        this.dirLight.shadow.mapSize.height = 2048;
         
         // Tight frustum for maximum pixel density around player
         const shadowSize = 15;
@@ -76,13 +118,9 @@ export class Game {
         this.dirLight.shadow.camera.top = shadowSize;
         this.dirLight.shadow.camera.bottom = -shadowSize;
         
-        // Bias tuning for VSM
-        this.dirLight.shadow.bias = -0.0001;
-        this.dirLight.shadow.normalBias = 0.02; 
-        
-        // VSM Softness settings
-        this.dirLight.shadow.blurSamples = 8;
-        this.dirLight.shadow.radius = 4;
+        // Bias tuning for PCF
+        this.dirLight.shadow.bias = -0.0005;
+        this.dirLight.shadow.normalBias = 0.05; 
         
         this.scene.add(this.dirLight);
 
@@ -105,7 +143,11 @@ export class Game {
 
         // Character (Async load)
         this.character = new Character(this);
-        this.character.load();
+        this.character.load().then(() => {
+            if (this.state === GameState.SPLASH && this.character) {
+                this.character.fadeToAction('laiddown', 0);
+            }
+        });
     }
 
     private addProps() {
@@ -155,10 +197,28 @@ export class Game {
         requestAnimationFrame(this.animate.bind(this));
 
         const delta = this.clock.getDelta();
+        const time = performance.now();
+
+        // FPS Counter Logic
+        this.frameCount++;
+        if (time >= this.lastTime + 1000) {
+            if (this.fpsElement) {
+                this.fpsElement.innerText = `FPS: ${Math.round((this.frameCount * 1000) / (time - this.lastTime))}`;
+            }
+            this.frameCount = 0;
+            this.lastTime = time;
+        }
 
         if (this.character) {
-            this.character.update(delta, this.inputManager.inputVector);
-            this.cameraManager.follow(this.character.position, delta);
+            if (this.state === GameState.GAMEPLAY) {
+                this.character.update(delta, this.inputManager.inputVector);
+                this.cameraManager.follow(this.character.position, delta);
+            } else {
+                // Just update animation mixer in other states
+                this.character.mixer?.update(delta);
+                // In splash/transitioning, follow with higher lerp or different logic if needed
+                this.cameraManager.follow(this.character.position, delta, 10);
+            }
 
             // Follow the character with the light to keep the high-quality shadow area centered
             if (this.dirLight) {

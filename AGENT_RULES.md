@@ -17,7 +17,10 @@ src/
 ├── CameraManager.ts # Isometric orthographic camera, follow logic
 ├── InputManager.ts  # Touch/Mouse virtual joystick
 ├── Character.ts     # FBX loading, animation mixer, movement
-└── style.css        # Basic CSS reset for fullscreen
+├── GameState.ts     # Game state constants (SPLASH, TRANSITIONING, GAMEPLAY)
+├── GameConfig.ts    # Global game settings (Title, etc.)
+├── MainMenuUI.ts    # HTML/CSS menu overlay
+└── style.css        # Basic CSS reset and menu styles
 
 public/
 └── models/          # FBX model assets (character.fbx)
@@ -31,7 +34,9 @@ public/
 - `viewSize` controls zoom level (lower = more zoomed in)
 - Camera offset is `(10, 10, 10)` for standard isometric angle
 - Use **ACES Filmic Tone Mapping** and **sRGB Color Space** for premium visuals
-- Shadow maps should be 2048x2048 with PCFSoftShadowMap
+- Use **PCFSoftShadowMap** for premium and stable visuals
+- Shadow maps should be 2048x2048
+- Debugging: Toggle `SHOW_FPS` in `GameConfig.ts` to see performance metrics.
 
 ### Character System
 - FBX models are loaded via `FBXLoader` from `three/examples/jsm/loaders/FBXLoader`
@@ -39,6 +44,18 @@ public/
 - Character height is normalized to ~2 world units via auto-scaling
 - Animation state machine: Idle → Walk (1-30% input) → Run (>30% input)
 - Bored animation triggers after 15 seconds of idle
+- Splash animations: `laiddown` (loop) for splash screen, `standup` (one-shot) for start game transition
+
+### State Management
+- Use `GameState` constants to manage game flow:
+  - `SPLASH`: Front-facing closeup camera, `laiddown` animation, `MainMenuUI` visible.
+  - `TRANSITIONING`: Playing `standup` animation, UI hidden.
+  - `GAMEPLAY`: Isometric camera, full movement control enabled.
+
+### UI System
+- Main menu is implemented as a DOM overlay in `MainMenuUI.ts`
+- Use `GameConfig` for centralized settings like `GAME_TITLE`
+- Overlay elements should have `pointer-events: auto` while the container has `none` to allow clicking through to the game if needed.
 
 ### Input System
 - Virtual joystick appears on touch/click and follows the touch position

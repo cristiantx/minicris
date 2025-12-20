@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 export class InputManager {
     public inputVector: THREE.Vector2 = new THREE.Vector2();
+    public enabled: boolean = true;
     private container: HTMLElement;
     
     // Joystick config
@@ -68,6 +69,7 @@ export class InputManager {
 
     // -- Touch Handlers --
     private onTouchStart(e: TouchEvent) {
+        if (!this.enabled) return;
         e.preventDefault();
         const touch = e.changedTouches[0];
         this.startDragt(touch.clientX, touch.clientY);
@@ -87,6 +89,7 @@ export class InputManager {
 
     // -- Mouse Handlers --
     private onMouseDown(e: MouseEvent) {
+        if (!this.enabled) return;
         this.startDragt(e.clientX, e.clientY);
     }
 

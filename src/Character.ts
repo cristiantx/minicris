@@ -63,33 +63,37 @@ export class Character {
             
                 if (this.mixer) {
                     // Load animations in parallel for better performance
-                    const [walkFbx, runFbx, idleFbx, boredFbx] = await Promise.all([
+                    const [walkFbx, runFbx, idleFbx, boredFbx, laiddownFbx, standupFbx] = await Promise.all([
                         loader.loadAsync('/animations/walking.fbx'),
                         loader.loadAsync('/animations/running.fbx'),
                         loader.loadAsync('/animations/idle.fbx'),
-                        loader.loadAsync('/animations/bored.fbx')
+                        loader.loadAsync('/animations/bored.fbx'),
+                        loader.loadAsync('/animations/laiddown.fbx'),
+                        loader.loadAsync('/animations/standup.fbx')
                     ]);
 
-                    // Setup Walking
-                    const walkClip = walkFbx.animations[0];
-                    if (walkClip) {
-                        walkClip.name = 'walk';
-                        this.actions['walk'] = this.mixer.clipAction(walkClip);
-                    }
+                    // Helper to register animation
+                    const registerAction = (fbx: any, name: string, loop: boolean = true) => {
+                        const clip = fbx.animations[0];
+                        if (clip) {
+                            clip.name = name;
+                            this.actions[name] = this.mixer!.clipAction(clip);
+                            if (!loop) {
+                                this.actions[name].loop = THREE.LoopOnce;
+                                this.actions[name].clampWhenFinished = true;
+                            }
+                        }
+                    };
 
-                    // Setup Running
-                    const runClip = runFbx.animations[0];
-                    if (runClip) {
-                        runClip.name = 'run';
-                        this.actions['run'] = this.mixer.clipAction(runClip);
-                    }
+                    registerAction(walkFbx, 'walk');
+                    registerAction(runFbx, 'run');
+                    registerAction(idleFbx, 'idle');
+                    registerAction(boredFbx, 'bored', false);
+                    registerAction(laiddownFbx, 'laiddown');
+                    registerAction(standupFbx, 'standup', false);
 
-                    // Setup Idle
-                    const idleClip = idleFbx.animations[0];
-                    if (idleClip) {
-                        idleClip.name = 'idle';
-                        this.actions['idle'] = this.mixer.clipAction(idleClip);
-                        
+                    // Setup Idle as default
+                    if (this.actions['idle']) {
                         // Start Idle and Reveal Model
                         this.activeAction = this.actions['idle'];
                         this.activeAction.play();
@@ -99,22 +103,13 @@ export class Character {
                         }
                     }
 
-                    // Setup Bored
-                    const boredClip = boredFbx.animations[0];
-                    if (boredClip) {
-                        boredClip.name = 'bored';
-                        this.actions['bored'] = this.mixer.clipAction(boredClip);
-                        this.actions['bored'].loop = THREE.LoopOnce;
-                        this.actions['bored'].clampWhenFinished = true;
-
-                        // listener to return to idle after bored
-                        this.mixer.addEventListener('finished', (e: any) => {
-                            if (e.action === this.actions['bored']) {
-                                this.fadeToAction('idle', 0.5);
-                                this.idleTimer = 0; // Reset timer
-                            }
-                        });
-                    }
+                    // listener to return to idle after one-shots
+                    this.mixer.addEventListener('finished', (e: any) => {
+                        if (e.action === this.actions['bored']) {
+                            this.fadeToAction('idle', 0.5);
+                            this.idleTimer = 0; // Reset timer
+                        }
+                    });
                 }
 
             console.log("Character Loaded", this.actions);
@@ -206,7 +201,28 @@ export class Character {
         }
     }
 
-    private fadeToAction(name: string, duration: number) {
+    public playOneShotAnimation(name: string, fadeOutDuration: number = 0.5): Promise<void> {
+        return new Promise((resolve) => {
+            if (!this.actions[name] || !this.mixer) {
+                resolve();
+                return;
+            }
+
+            const action = this.actions[name];
+            this.fadeToAction(name, fadeOutDuration);
+
+            const onFinished = (e: any) => {
+                if (e.action === action) {
+                    this.mixer!.removeEventListener('finished', onFinished);
+                    resolve();
+                }
+            };
+
+            this.mixer.addEventListener('finished', onFinished);
+        });
+    }
+
+    public fadeToAction(name: string, duration: number) {
         if (!this.actions[name]) return; // Action doesn't exist?
         const nextAction = this.actions[name];
         
