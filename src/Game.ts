@@ -29,7 +29,7 @@ export class Game {
         
         // Enhancing visual quality
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Very soft shadows
+        this.renderer.shadowMap.type = THREE.VSMShadowMap; // Switch to VSM for soft shadows
         this.renderer.outputColorSpace = THREE.SRGBColorSpace; // Better colors
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping; // Cinematic look
         this.renderer.toneMappingExposure = 1.2;
@@ -76,9 +76,13 @@ export class Game {
         this.dirLight.shadow.camera.top = shadowSize;
         this.dirLight.shadow.camera.bottom = -shadowSize;
         
-        // Bias tuning to avoid acne and separate shadow from feet
-        this.dirLight.shadow.bias = -0.0005;
-        this.dirLight.shadow.normalBias = 0.05; 
+        // Bias tuning for VSM
+        this.dirLight.shadow.bias = -0.0001;
+        this.dirLight.shadow.normalBias = 0.02; 
+        
+        // VSM Softness settings
+        this.dirLight.shadow.blurSamples = 8;
+        this.dirLight.shadow.radius = 4;
         
         this.scene.add(this.dirLight);
 
