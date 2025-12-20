@@ -9,7 +9,7 @@ export class CameraManager {
     private viewSize: number = 15; // How many world units vertical fit in screen
     // Camera states
     private offset: THREE.Vector3;
-    private isoOffset: THREE.Vector3 = new THREE.Vector3(10, 10, 10);
+    private isoOffset: THREE.Vector3 = new THREE.Vector3(50, 50, 50);
     private splashOffset: THREE.Vector3 = new THREE.Vector3(0, 3, 4); 
  // Front, offset to look at character on the right
     private currentTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
@@ -55,8 +55,9 @@ export class CameraManager {
     public follow(target: THREE.Vector3, delta: number, lerpFactor: number = 5.0) {
         this.currentTarget.lerp(target, lerpFactor * delta);
         
-        const desiredPosition = this.currentTarget.clone().add(this.offset);
-        this.camera.position.lerp(desiredPosition, lerpFactor * delta);
+        // Strict follow to prevent rotation wobble
+        // Camera position is always strictly offset from the (smoothed) target
+        this.camera.position.copy(this.currentTarget).add(this.offset);
         
         // Look at point logic
         const lookTarget = this.currentTarget.clone();
