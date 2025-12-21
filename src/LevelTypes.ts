@@ -24,6 +24,25 @@ export interface Layer {
     cells: LayerCell[];
 }
 
+export interface GroundDefault {
+    tile: string;
+    rot: 0 | 1 | 2 | 3;
+    h: number;
+}
+
+export interface LevelDefaults {
+    ground: GroundDefault;
+}
+
+export interface OverrideCell {
+    x: number;
+    y: number;
+    tile: string;
+    rot?: 0 | 1 | 2 | 3;
+    h?: number;
+    toHeight?: number;
+}
+
 export interface LevelObject {
     id: string;
     type: string;
@@ -39,6 +58,8 @@ export interface LevelObject {
 export interface LevelData {
     meta: LevelMeta;
     tilesets: TilesetMap;
+    defaults: LevelDefaults;
+    overrides: OverrideCell[];
     layers: Layer[];
     objects: LevelObject[];
 }

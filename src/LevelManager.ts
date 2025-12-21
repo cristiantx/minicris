@@ -7,6 +7,7 @@ export class LevelManager {
     private scene: THREE.Scene;
     private loader: GLTFLoader;
     private models: { [key: string]: THREE.Group } = {}; // Cache for loaded GLBs
+    private modelSizes: { [key: string]: THREE.Vector3 } = {}; // Cache for model sizes
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
@@ -63,6 +64,7 @@ export class LevelManager {
 
                     // Fix pivot to bottom
                     const finalBox = new THREE.Box3().setFromObject(model);
+                    const finalSize = finalBox.getSize(new THREE.Vector3());
                     model.position.y = -finalBox.min.y;
                     
                     model.traverse((c) => {
@@ -74,6 +76,7 @@ export class LevelManager {
 
                     wrapper.add(model);
                     this.models[modelName] = wrapper;
+                    this.modelSizes[modelName] = finalSize; // Store final scaled size
                     resolve();
                 } catch (e) {
                     console.error(`Failed to load model asset: ${modelName}`, e);
@@ -87,22 +90,39 @@ export class LevelManager {
 
     private buildLevel() {
         if (!this.levelData) return;
-        const { meta, tilesets, layers } = this.levelData;
+        const { meta, tilesets, layers, defaults, overrides } = this.levelData;
         const tileSize = meta.tileSize;
         
-        // Offset to center the map (optional), but let's stick to 0,0 being top-left as per spec
-        // Actually spec says "Grid origin is top-left". 
-        // In 3D: X increases to Right, Z increases to 'Down' (towards camera? or Away?).
-        // Usually: Top-Left -> X=0, Z=0.
-        // X+ -> Right. Z+ -> Down (South).
+        // 1. Spawn Default Ground + Overrides
+        for (let x_grid = 0; x_grid < meta.width; x_grid++) {
+            for (let y_grid = 0; y_grid < meta.height; y_grid++) {
+                // Check if this cell is overridden
+                const override = overrides.find(o => o.x === x_grid && o.y === y_grid);
+                
+                const x = x_grid * tileSize;
+                const z = y_grid * tileSize;
+                
+                if (override) {
+                    const modelKey = tilesets[override.tile];
+                    if (modelKey) {
+                        this.spawnTile(override.tile, modelKey, x, (override.h || 0) * 1, z, tileSize, override.rot || 0);
+                    }
+                } else {
+                    const modelKey = tilesets[defaults.ground.tile];
+                    if (modelKey) {
+                        this.spawnTile(defaults.ground.tile, modelKey, x, defaults.ground.h * 1, z, tileSize, defaults.ground.rot);
+                    }
+                }
+            }
+        }
 
+        // 2. Spawn Layers (Other structures)
         layers.forEach(layer => {
             layer.cells.forEach(cell => {
                 const x = cell.x * tileSize;
-                const z = cell.y * tileSize; // Grid Y is World Z
-                const h = (cell.h || 0) + layer.z; // Base height + Layer Z index ? Or just purely cell.h? 
-                // Spec says "z: vertical layer index". Let's assume Z implies height unit steps.
-                const y = h * 1; // 1 unit height per level?
+                const z = cell.y * tileSize; 
+                const h = (cell.h || 0) + layer.z; 
+                const y = h * 1; 
 
                 const modelKey = tilesets[cell.tile];
                 
@@ -147,7 +167,12 @@ export class LevelManager {
             if (template) {
                 object = template.clone();
                 // Position
-                object.position.set(x, y, z);
+                let yOffset = 0;
+                if (tileId.includes('floor')) {
+                    const size = this.modelSizes[key];
+                    if (size) yOffset = -size.y;
+                }
+                object.position.set(x, y + yOffset, z);
             }
         }
 
@@ -162,40 +187,27 @@ export class LevelManager {
         if (!this.levelData) return true;
 
         const { width, height, tileSize } = this.levelData.meta;
-
-        // 1. Grid Bounds Check
-        // Convert world to grid
-        // Assuming tile center is grid coordinate integer? Or range?
-        // Let's assume x,z are world coords.
-        // We probably centered tiles at x, z during spawn?
-        // Wait, spawnTile: `x = cell.x * tileSize`.
-        // If tile (0,0) is at world 0,0, then it covers range [-0.5, 0.5] or [0, 1]?
-        // "Grid origin is top-left".
-        // Let's treat (0,0) as center of tile (0,0) FOR NOW, or corner?
-        // Let's stick to standard: (0,0) is the center of the first tile.
-        // Then grid coordinates are round(x/tileSize), round(z/tileSize).
-        
         const gridX = Math.round(x / tileSize);
         const gridY = Math.round(z / tileSize);
 
         if (gridX < 0 || gridX >= width || gridY < 0 || gridY >= height) {
-            return false; // Out of bounds
+            return false; 
         }
 
-        // 2. Obstacle Check
-        // Iterate layers. If there's a blocking tile at this gridX, gridY.
-        // What defines blocking?
-        // - "wall" tileset?
-        // - Objects?
-        // For this version: check if any layer has a tile at this pos that IS NOT "floor".
-        // Simply: 'floor' is walkable. 'wall', 'pillar', 'tree' -> blocked.
-        // We need lookup for this.
-        
+        // 1. Check Overrides
+        const override = this.levelData.overrides.find(o => o.x === gridX && o.y === gridY);
+        if (override) {
+            if (!override.tile.includes('floor')) return false;
+        } else {
+            // 2. Check Defaults
+            const defaultTile = this.levelData.defaults.ground.tile;
+            if (!defaultTile.includes('floor')) return false;
+        }
+
+        // 3. Check Other Layers
         for (const layer of this.levelData.layers) {
             const cell = layer.cells.find(c => c.x === gridX && c.y === gridY);
             if (cell) {
-                // Determine if this tile type is blocking
-                // Simple heuristic: if tile key contains "floor" -> walk. Else -> block.
                 if (!cell.tile.includes('floor')) {
                     return false;
                 }
