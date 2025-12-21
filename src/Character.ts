@@ -173,8 +173,16 @@ export class Character {
 
             // Apply movement
             const moveStep = moveVec.multiplyScalar(targetSpeed * delta);
-            this.position.add(moveStep);
-            this.mesh.position.copy(this.position);
+            const nextPos = this.position.clone().add(moveStep);
+
+            // Collision Check
+            if (this.game.levelManager.isWalkable(nextPos.x, nextPos.z)) {
+                this.position.copy(nextPos);
+                this.mesh.position.copy(this.position);
+            } else {
+                // Optional: Sliding against walls?
+                // For now, just stop.
+            }
 
             // Rotation
             const targetRotation = Math.atan2(moveVec.x, moveVec.z);
