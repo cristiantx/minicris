@@ -7,6 +7,7 @@ import { GameState, type GameStateType } from './GameState';
 import { MainMenuUI } from './MainMenuUI';
 import { GameConfig } from './GameConfig';
 import { LevelManager } from './LevelManager';
+import { ItemManager } from './ItemManager';
 
 export class Game {
     private container: HTMLElement;
@@ -28,12 +29,14 @@ export class Game {
 
     // Assets
     public levelManager: LevelManager;
+    public itemManager: ItemManager;
 
     constructor(container: HTMLElement) {
         this.container = container;
         this.scene = new THREE.Scene();
         this.clock = new THREE.Clock();
         this.levelManager = new LevelManager(this.scene);
+        this.itemManager = new ItemManager(this);
 
         // Renderer Setup
         this.renderer = new THREE.WebGLRenderer({ 
@@ -157,6 +160,9 @@ export class Game {
         // 4. Load Character
         this.character = new Character(this);
         await this.character.load();
+
+        // 5. Load Items
+        await this.itemManager.loadItems(this.levelManager.levelData!);
         
         if (this.character) {
              // Set spawn
@@ -194,6 +200,7 @@ export class Game {
             if (this.state === GameState.GAMEPLAY) {
                 this.character.update(delta, this.inputManager.inputVector);
                 this.cameraManager.follow(this.character.position, delta);
+                this.itemManager.update(delta, this.character.position);
             } else {
                 // Just update animation mixer in other states
                 this.character.mixer?.update(delta);

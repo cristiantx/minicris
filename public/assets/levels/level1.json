@@ -77,6 +77,16 @@
   ],
   "objects": [
     {
+      "id": "item_beer_1",
+      "type": "item",
+      "x": 6,
+      "y": 6,
+      "h": 0.8,
+      "props": {
+        "itemType": "beer"
+      }
+    },
+    {
       "id": "player_spawn",
       "type": "spawn",
       "x": 4,
