@@ -14,14 +14,16 @@ export class LevelManager {
         this.loader = new GLTFLoader();
     }
 
-    public async loadLevel(url: string): Promise<void> {
+    public async loadLevel(url: string, onProgress?: (p: number) => void): Promise<void> {
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error(`Failed to load level: ${response.statusText}`);
             this.levelData = await response.json();
             
+            if (onProgress) onProgress(0.1); // 10% for JSON
+
             if (this.levelData) {
-                await this.preloadAssets(this.levelData.tilesets);
+                await this.preloadAssets(this.levelData.tilesets, onProgress);
                 this.buildLevel();
             }
         } catch (error) {
@@ -29,17 +31,36 @@ export class LevelManager {
         }
     }
 
-    private async preloadAssets(tilesets: TilesetMap) {
-        const promises: Promise<void>[] = [];
-        const loadedKeys = new Set<string>();
-
+    private async preloadAssets(tilesets: TilesetMap, onProgress?: (p: number) => void) {
+        // Identify unique models first
+        const uniqueModels = new Set<string>();
         Object.values(tilesets).forEach(modelName => {
-            if (modelName.startsWith('primitive:')) return; // Skip primitives
-            if (loadedKeys.has(modelName)) return; // Skip duplicates
-            
-            loadedKeys.add(modelName);
+            if (!modelName.startsWith('primitive:')) {
+                uniqueModels.add(modelName);
+            }
+        });
+
+        const promises: Promise<void>[] = [];
+        let loadedCount = 0;
+        const totalModels = uniqueModels.size;
+
+        uniqueModels.forEach(modelName => {
             promises.push(new Promise(async (resolve) => {
                 try {
+                    // Check cache first (optimization to avoid re-fetching if we already have it from previous level loads, though we clear scene)
+                    // Actually, let's keep the existing logic of blindly loading for now unless we implementation proper caching
+                    // But wait, if we have `this.models` persisting, we should use it.
+                    // The `models` map is instance level. `loadLevel` is called on existing instance?
+                    // Game.ts creates `this.levelManager` in constructor. `loadLevel` is called. 
+                    // If we reload level, `models` still has data.
+                    
+                    if (this.models[modelName]) {
+                        loadedCount++;
+                        if (onProgress) onProgress(0.1 + (loadedCount / totalModels) * 0.9);
+                        resolve();
+                        return;
+                    }
+
                     const gltf = await this.loader.loadAsync(`/models/${modelName}.glb`);
                     // wrapper to center pivot if needed, similar to Game.ts logic
                     const wrapper = new THREE.Group();
@@ -48,10 +69,6 @@ export class LevelManager {
                     // Normalize Scale and Pivot (Simplified logic from Game.ts)
                     const box = new THREE.Box3().setFromObject(model);
                     const size = box.getSize(new THREE.Vector3());
-                    
-                    // Basic scaling logic based on type could go here if needed
-                    // For now keeping it simple or relying on assets being reasonably sized
-                    // But rocks/trees might need scaling as before.
                     
                     // Simple hacky scale for existing assets based on name
                     if (modelName.includes('rock')) {
@@ -64,7 +81,7 @@ export class LevelManager {
 
                     // Fix pivot to bottom
                     const finalBox = new THREE.Box3().setFromObject(model);
-                    const finalSize = finalBox.getSize(new THREE.Vector3());
+                    const finalSize = finalBox.getSize(new THREE.Vector3()); // unused but calculated
                     model.position.y = -finalBox.min.y;
                     
                     model.traverse((c) => {
@@ -76,11 +93,19 @@ export class LevelManager {
 
                     wrapper.add(model);
                     this.models[modelName] = wrapper;
-                    this.modelSizes[modelName] = finalSize; // Store final scaled size
-                    resolve();
+                    this.modelSizes[modelName] = finalSize; 
                 } catch (e) {
                     console.error(`Failed to load model asset: ${modelName}`, e);
-                    resolve(); // Resolve anyway to not block level load
+                } finally {
+                    loadedCount++;
+                    // Map 0..total to 0.1..1.0
+                    // Because loadLevel handles 0..0.1
+                    // So we map to range 0.1 -> 1.0
+                    if (onProgress) {
+                        const progress = 0.1 + (loadedCount / totalModels) * 0.9;
+                        onProgress(progress);
+                    }
+                    resolve();
                 }
             }));
         });
@@ -226,5 +251,16 @@ export class LevelManager {
             }
         }
         return new THREE.Vector3(0, 0, 0);
+    }
+
+    public getEnemySpawn(): THREE.Vector3 | null {
+        if (this.levelData) {
+            const spawnObj = this.levelData.objects.find(o => o.type === 'enemy_spawn');
+            if (spawnObj) {
+                const { tileSize } = this.levelData.meta;
+                return new THREE.Vector3(spawnObj.x * tileSize, spawnObj.h, spawnObj.y * tileSize);
+            }
+        }
+        return null;
     }
 }

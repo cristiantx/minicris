@@ -2,8 +2,8 @@
   "meta": {
     "tileSize": 2,
     "grid": "isometric",
-    "width": 10,
-    "height": 10
+    "width": 20,
+    "height": 20
   },
   "tilesets": {
     "floor": "floor-grass",
@@ -37,38 +37,68 @@
           "rot": 0
         },
         {
-          "x": 7,
-          "y": 7,
+          "x": 5,
+          "y": 10,
+          "tile": "tree",
+          "rot": 2
+        },
+        {
+          "x": 10,
+          "y": 5,
+          "tile": "tree",
+          "rot": 3
+        },
+        {
+          "x": 15,
+          "y": 8,
+          "tile": "tree",
+          "rot": 1
+        },
+        {
+          "x": 8,
+          "y": 15,
+          "tile": "tree",
+          "rot": 0
+        },
+        {
+          "x": 12,
+          "y": 12,
           "tile": "rock",
           "rot": 2
         },
         {
-          "x": 8,
-          "y": 7,
+          "x": 13,
+          "y": 12,
           "tile": "rock",
           "rot": 1
         },
         {
+          "x": 4,
+          "y": 14,
+          "tile": "rock",
+          "rot": 0
+        },
+        {
           "x": 0,
           "y": 0,
           "tile": "wall",
           "rot": 0
         },
         {
-          "x": 9,
+          "x": 19,
           "y": 0,
           "tile": "wall",
           "rot": 0
         },
         {
           "x": 0,
-          "y": 9,
+          "y": 19,
           "tile": "wall",
           "rot": 0
         },
         {
-          "x": 9,
-          "y": 9,
+          "x": 19,
+          "y": 19,
           "tile": "wall",
           "rot": 0
         }
@@ -79,8 +109,8 @@
     {
       "id": "item_beer_1",
       "type": "item",
-      "x": 6,
-      "y": 6,
+      "x": 10,
+      "y": 10,
       "h": 0.8,
       "props": {
         "itemType": "beer"
@@ -91,6 +121,13 @@
       "type": "spawn",
       "x": 4,
       "y": 4,
+      "h": 0
+    },
+    {
+      "id": "enemy_spawn",
+      "type": "enemy_spawn",
+      "x": 16,
+      "y": 16,
       "h": 0
     }
   ]

@@ -3,11 +3,13 @@ import * as THREE from 'three';
 import { CameraManager } from './CameraManager';
 import { InputManager } from './InputManager';
 import { Character } from './Character';
+import { Enemy } from './Enemy';
 import { GameState, type GameStateType } from './GameState';
 import { MainMenuUI } from './MainMenuUI';
 import { GameConfig } from './GameConfig';
 import { LevelManager } from './LevelManager';
 import { ItemManager } from './ItemManager';
+import { LoadingUI } from './LoadingUI';
 
 export class Game {
     private container: HTMLElement;
@@ -16,10 +18,12 @@ export class Game {
     public cameraManager: CameraManager;
     public inputManager: InputManager;
     public character: Character | null = null;
+    public enemy: Enemy | null = null;
     public dirLight: THREE.DirectionalLight | null = null;
     
     public state: GameStateType = GameState.SPLASH;
     private ui: MainMenuUI;
+    private loadingUI: LoadingUI; 
     private clock: THREE.Clock;
 
     // Performance & Debug
@@ -59,6 +63,7 @@ export class Game {
         this.cameraManager = new CameraManager(this);
         this.inputManager = new InputManager(this.container);
         this.ui = new MainMenuUI(this.container);
+        this.loadingUI = new LoadingUI(this.container); // Initialize
 
         this.initMenuScene();
         this.initUI();
@@ -87,15 +92,15 @@ export class Game {
     private async startGame() {
         if (this.state !== GameState.SPLASH) return;
         
-        // Show loading state if needed, or just freeze UI
-        // For now, let's just proceed.
-        
         this.state = GameState.TRANSITIONING;
         this.ui.hide(); 
+        this.loadingUI.show(); // Show Loading
 
         // Load the heavy level async
         await this.loadLevel();
         
+        this.loadingUI.hide(); // Hide Loading
+
         // Immediate Transition
         this.cameraManager.setView('GAMEPLAY');
         this.state = GameState.GAMEPLAY;
@@ -154,15 +159,31 @@ export class Game {
         fillLight.position.set(-10, 5, -10);
         this.scene.add(fillLight);
 
-        // 3. Load Level Data & Assets
-        await this.levelManager.loadLevel('/assets/levels/level1.json');
+        // 3. Load Level Data & Assets (0-80%)
+        await this.levelManager.loadLevel('/assets/levels/level1.json', (p) => {
+            this.loadingUI.updateProgress(p * 80);
+        });
 
-        // 4. Load Character
+        // 4. Load Character (80-90%)
         this.character = new Character(this);
         await this.character.load();
+        this.loadingUI.updateProgress(90);
 
-        // 5. Load Items
+        // 5. Load Items (90-100%)
         await this.itemManager.loadItems(this.levelManager.levelData!);
+        this.loadingUI.updateProgress(100);
+        
+        // 6. Load Enemy (Parallel or after)
+        this.enemy = new Enemy(this);
+        await this.enemy.load(); // Could be parallelized with items
+        
+        // Spawn Enemy
+        if (this.enemy) {
+            const enemySpawn = this.levelManager.getEnemySpawn();
+            if (enemySpawn) {
+                this.enemy.setPosition(enemySpawn);
+            }
+        }
         
         if (this.character) {
              // Set spawn
@@ -208,6 +229,10 @@ export class Game {
                 this.cameraManager.follow(this.character.position, delta, 5);
             }
 
+            if (this.enemy && this.state === GameState.GAMEPLAY) {
+                this.enemy.update(delta);
+            }
+
             // Follow the character with the light to keep the high-quality shadow area centered
             if (this.dirLight) {
                 this.dirLight.position.x = this.character.position.x + 20;
@@ -218,5 +243,13 @@ export class Game {
         }
 
         this.renderer.render(this.scene, this.cameraManager.camera);
+    }
+
+    public gameOver() {
+        if (this.state !== GameState.GAMEPLAY) return;
+        
+        alert("GAME OVER! You were caught!");
+        // Simple reload for now
+        location.reload();
     }
 }
